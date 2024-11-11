@@ -1,0 +1,32 @@
+fastapi==0.111.0
+uvicorn[standard]==0.22.0
+pydantic==2.7.1
+
+
+requests==2.32.2
+aiohttp==3.9.5
+httpx
+
+passlib==1.7.4
+passlib[bcrypt]
+bcrypt==3.2.0
+
+# AI libraries  
+openai==0.28
+langchain==0.2.15
+langchain-community==0.2.12
+
+# Database libraries
+sqlalchemy==2.0.32
+alembic==1.13.2
+
+
+# ML libraries
+
+
+# Image processing libraries
+opencv-python
+
+# Visualization libraries
+matplotlib
+

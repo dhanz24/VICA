@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any
 
 import openai
 import aiohttp
@@ -31,6 +31,9 @@ from VICA.apps.VICA.utils.auth import get_current_user, get_verified_user, get_a
 
 CORS_ALLOW_ORIGIN = os.getenv("CORS_ALLOW_ORIGIN", "*")
 
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
 app = FastAPI(
     title="Azure OpenAI API",
     docs_url="/docs",
@@ -45,12 +48,12 @@ app.add_middleware(
 
 app.state.MODELS = {}
 
-@app.middleware("http")
-async def check_url(request: Request, call_next):
-    if len(app.state.MODELS) == 0:
-        await get_models()
-    response = await call_next(request)
-    return response
+# @app.middleware("http")
+# async def check_url(request: Request, call_next):
+#     if len(app.state.MODELS) == 0:
+#         await get_models()
+#     response = await call_next(request)
+#     return response
 
 async def fetch_url(url, key):
     timeout = aiohttp.ClientTimeout(total=5)
@@ -73,32 +76,21 @@ async def cleanup_response(
     if session:
         await session.close()
 
-# async def get_models():
-#     url = f"{AZURE_OPENAI_BASE_URL}/models?api-version={AZURE_OPENAI_API_VERSION}"
-#     response = await fetch_url(url, AZURE_OPENAI_API_KEY)
-#     if response:
-#         models = response.get("models", {})
-#         print(models)
-#     else:
-#         print("Error fetching models.")
-#         app.state.MODELS = {}
-
+# Initialize OpenAI Instance
 openai.api_type = "azure"
 openai.api_key = AZURE_OPENAI_API_KEY
 openai.api_base = AZURE_OPENAI_BASE_URL
 openai.api_version = AZURE_OPENAI_API_VERSION
 openai.deployment_name = AZURE_OPENAI_DEPLOYMENT_NAME
 
-async def get_raw_models(id: Optional[str] = None):
+async def fetch_raw_models(id: Optional[str] = None):
     try:
         response = openai.Model.list(id=id)
-        # print("Raw response from API:", response)  # Debugging statement
         models = response.get("data", [])
-        # print("Parsed models:", models)  # Debugging statement
         return models
     except Exception as e:
-        print(f"Error fetching models: {e}")
-        return []
+        logger.error(f"Failed to fetch models: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch models")
 
 
 def merge_models_lists(model_lists):
@@ -115,10 +107,9 @@ def merge_models_lists(model_lists):
                     "urlIdx": idx,
                 }
                 for model in models
-                if model["id"] and any(
-                    keyword in model["id"]
-                    for keyword in ["babbage", "dall-e", "davinci", "embedding", "tts", "whisper"]
-                )
+                if model["id"] and model["id"] in [  #filter model Azure Openai mana saja yang bisa digunakan pada VICA
+                    "gpt-4", "gpt-4o", "gpt-4o-mini", "gpt-35-turbo"
+                    ]
             ]
             merged_list.extend(filtered_models)
     
@@ -126,7 +117,7 @@ def merge_models_lists(model_lists):
 
 
 async def get_all_models(raw=False) -> dict[str, list] | list:
-    response = await get_raw_models()
+    response = await fetch_raw_models()
     if raw:
         return response
 
@@ -145,75 +136,115 @@ async def get_models(url_idx: Optional[int] = None, user=Depends(get_verified_us
     models = await get_all_models()
     return app.state.MODELS
 
-class MessageContent(BaseModel):
-    type: str  # 'text' or 'image'
-    data: str  # text for 'text' type or base64 encoded image for 'image' type
-
-class ChatCompletionRequest(BaseModel):
-    messages: List[Dict[str, Union[str, MessageContent]]]
-    max_tokens: Optional[int] = 100
-    temperature: Optional[float] = 0.7
-    top_p: Optional[float] = 1.0
-    frequency_penalty: Optional[float] = 0.0
-    presence_penalty: Optional[float] = 0.0
-    stream: Optional[bool] = False
+@app.get("/models/raw")
+async def get_raw_models(user=Depends(get_verified_user)):
+    models = await get_all_models(raw=True)
+    return models
 
 @app.post("/chat/completions")
+@app.post("/chat/completions/{url_idx}")
 async def generate_chat_completion(
-    form_data: ChatCompletionRequest,
+    form_data: dict,
+    url_idx: Optional[int] = None,
     user=Depends(get_verified_user),
 ):
+
+    payload = {**form_data}
+
+    if "metadata" in payload:
+        del payload["metadata"]
+
+    model_id = form_data.get("model")
+
+    if not app.state.MODELS:
+        await get_all_models()  # Memastikan bahwa app.state.MODELS terisi
+
+    if model_id not in app.state.MODELS:
+        raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found")
+
+    # model_info = Models.get_model_by_id(model_id)    #Custom Model Cooming soon jika terdapat 
+    # if model_info:
+    #     if model_info.base_model_id:
+    #         payload["model"] = model_info.base_model_id
+    #         params = model_info.params.model_dump()
+    #         payload = apply_model_params_to_body_openai(params, payload)
+    #         payload = apply_model_system_prompt_to_body(params, payload, user)
+
+    
+    model = app.state.MODELS[payload.get("model")]
+    idx = model["urlIdx"]
+
     url = f"{AZURE_OPENAI_BASE_URL}/openai/deployments/{AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version={AZURE_OPENAI_API_VERSION}"
-    headers = {
-        "api-key": AZURE_OPENAI_API_KEY,
-        "Content-Type": "application/json",
-    }
+    key = AZURE_OPENAI_API_KEY
 
-    # Process messages to handle text and image content
-    processed_messages = []
-    for message in form_data.messages:
-        content_type = message["content"].type  # Access type directly as an attribute
-        content_data = message["content"].data  # Access data directly as an attribute
+    if "api.openai.com" not in url and not payload["model"].lower().startswith("o1-"):
+        if "max_completion_tokens" in payload:
+            # Remove "max_completion_tokens" from the payload
+            payload["max_tokens"] = payload["max_completion_tokens"]
+            del payload["max_completion_tokens"]
+    else:
+        if "max_tokens" in payload and "max_completion_tokens" in payload:
+            del payload["max_tokens"]
 
-        if content_type == "text":
-            processed_messages.append({
-                "role": message["role"],
-                "content": content_data
-            })
-        elif content_type == "image":
-            # Images are marked with placeholder data for processing
-            processed_messages.append({
-                "role": message["role"],
-                "content": f"[IMAGE DATA: {content_data[:50]}...]"  # Short preview of image data
-            })
+    # Convert the modified body back to JSON
+    payload = json.dumps(payload)
 
-    # Build the request body with allowed parameters
-    body = {
-        "messages": processed_messages,
-        "max_tokens": form_data.max_tokens,
-        "temperature": form_data.temperature,
-        "top_p": form_data.top_p,
-        "frequency_penalty": form_data.frequency_penalty,
-        "presence_penalty": form_data.presence_penalty,
-        "stream": form_data.stream
-    }
+    log.debug(payload)
+    print(payload)
 
-    # Filter body to allowed parameters
-    allowed_params = {
-        "messages", "temperature", "max_tokens", "presence_penalty", "frequency_penalty",
-        "top_p", "stream"
-    }
-    filtered_body = {k: v for k, v in body.items() if k in allowed_params}
+    headers = {}
+    headers["api-key"] = key
+    headers["Content-Type"] = "application/json"
+
+    r = None
+    session = None
+    streaming = False
+    response = None
 
     try:
-        response = requests.post(url, json=filtered_body, headers=headers, stream=form_data.stream)
+        session = aiohttp.ClientSession(
+            trust_env=True, timeout=aiohttp.ClientTimeout(total=30)
+        )
+        r = await session.request(
+            method = "POST",
+            url = url,
+            data = payload,
+            headers = headers,
+        )
 
-        response.raise_for_status()
-        
-        # Handle streaming responses
-        if form_data.stream:
-            return StreamingResponse(response.iter_lines(), media_type="application/json")
+# Check if response is SSE
+        if "text/event-stream" in r.headers.get("Content-Type", ""):
+            streaming = True
+            return StreamingResponse(
+                r.content,
+                status_code=r.status,
+                headers=dict(r.headers),
+                background=BackgroundTask(
+                    cleanup_response, response=r, session=session
+                ),
+            )
         else:
-            return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"Request failed: {str(e)}"}
+            try:
+                response = await r.json()
+            except Exception as e:
+                log.error(e)
+                response = await r.text()
+
+            r.raise_for_status()
+            return response
+    except Exception as e:
+        log.exception(e)
+        error_detail = "VICA: Server Connection Error"
+        if isinstance(response, dict):
+            if "error" in response:
+                error_detail = f"{response['error']['message'] if 'message' in response['error'] else response['error']}"
+        elif isinstance(response, str):
+            error_detail = response
+
+        raise HTTPException(status_code=r.status if r else 500, detail=error_detail)
+    finally:
+        if not streaming and session:
+            if r:
+                r.close()
+            await session.close()
+

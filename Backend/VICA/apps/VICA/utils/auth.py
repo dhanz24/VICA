@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from typing import Optional, Union
 from passlib.context import CryptContext
-from fastapi import HTTPException, Depends, status, Request
+from fastapi import HTTPException, Depends, status, Request, Response, Cookie
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 
@@ -14,6 +14,7 @@ import jwt
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from VICA.apps.VICA.models.user import Users
+from VICA.apps.VICA.utils.constanta import ERROR_MESSAGES
 
 load_dotenv()
 SESSION_SECRET = os.getenv("JWT_SECRET")

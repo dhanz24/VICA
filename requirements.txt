@@ -30,3 +30,6 @@ opencv-python
 # Visualization libraries
 matplotlib
 
+
+pdf2image==1.17.0
+groq==0.12.0

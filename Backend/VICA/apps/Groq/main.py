@@ -20,11 +20,8 @@ from starlette.background import BackgroundTask
 
 load_dotenv('.env')
 
-AZURE_OPENAI_BASE_URL = os.getenv("AZURE_ENDPOINT")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_API_KEY")
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_API_VERSION")
-AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
-AZURE_OPENAI_MODEL_NAME = os.getenv("MODEL_NAME")
+GROQ_BASE_URL = os.getenv("GROQ_BASE_URL")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from VICA.apps.VICA.utils.auth import get_current_user, get_verified_user, get_admin_user
@@ -35,7 +32,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 app = FastAPI(
-    title="Azure OpenAI API",
+    title="Groq OpenAI API",
     docs_url="/docs",
 )
 app.add_middleware(
@@ -47,13 +44,6 @@ app.add_middleware(
 )
 
 app.state.MODELS = {}
-
-# @app.middleware("http")
-# async def check_url(request: Request, call_next):
-#     if len(app.state.MODELS) == 0:
-#         await get_models()
-#     response = await call_next(request)
-#     return response
 
 async def fetch_url(url, key):
     timeout = aiohttp.ClientTimeout(total=5)
@@ -76,21 +66,14 @@ async def cleanup_response(
     if session:
         await session.close()
 
-# Initialize OpenAI Instance
-openai.api_type = "azure"
-openai.api_key = AZURE_OPENAI_API_KEY
-openai.api_base = AZURE_OPENAI_BASE_URL
-openai.api_version = AZURE_OPENAI_API_VERSION
-openai.deployment_name = AZURE_OPENAI_DEPLOYMENT_NAME
-
 async def fetch_raw_models(id: Optional[str] = None):
-    try:
-        response = openai.Model.list(id=id)
-        models = response.get("data", [])
-        return models
-    except Exception as e:
-        log.error(f"Failed to fetch models: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch models")
+    url = f"{GROQ_BASE_URL}/models"
+    key = GROQ_API_KEY
+
+    if id:
+        url = f"{url}/{id}"
+
+    return await fetch_url(url, key)
 
 
 def merge_models_lists(model_lists):
@@ -102,14 +85,14 @@ def merge_models_lists(model_lists):
                 {
                     **model,
                     "name": model.get("name", model["id"]),
-                    "owned_by": "openai",
-                    "openai": model,
+                    "owned_by": "Groq",
+                    "Groq": model,
                     "urlIdx": idx,
                 }
                 for model in models
-                if model["id"] and model["id"] in [  #filter model Azure Openai mana saja yang bisa digunakan pada VICA
-                    "gpt-4", "gpt-4o", "gpt-4o-mini", "gpt-35-turbo"
-                    ]
+                # if model["id"] and model["id"] in [  #filter model Azure Openai mana saja yang bisa digunakan pada VICA
+                    
+                #     ]
             ]
             merged_list.extend(filtered_models)
     
@@ -121,10 +104,18 @@ async def get_all_models(raw=False) -> dict[str, list] | list:
     if raw:
         return response
 
-    # Ensure response is a list
-    model_lists = [response] if isinstance(response, list) else []
+    # Ensure response is a dictionary and contains the "data" key
+    if isinstance(response, dict) and "data" in response:
+        model_lists = [response["data"]]  # Directly access "data" key from response
+    elif isinstance(response, list):
+        model_lists = response  # Use as-is if it's already a list
+    else:
+        log.error("Unexpected response structure")
+        model_lists = []
+
+    print("Model Lists after processing:", model_lists)
     
-    # Filter and merge models
+    # Process and merge models
     models = {"data": merge_models_lists(model_lists)}
     app.state.MODELS = {model["id"]: model for model in models["data"]}
 
@@ -174,8 +165,8 @@ async def generate_chat_completion(
     model = app.state.MODELS[payload.get("model")]
     idx = model["urlIdx"]
 
-    url = f"{AZURE_OPENAI_BASE_URL}/openai/deployments/{AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version={AZURE_OPENAI_API_VERSION}"
-    key = AZURE_OPENAI_API_KEY
+    url = f"{GROQ_BASE_URL}/chat/completions"
+    key = GROQ_API_KEY
 
     if "api.openai.com" not in url and not payload["model"].lower().startswith("o1-"):
         if "max_completion_tokens" in payload:
@@ -193,7 +184,7 @@ async def generate_chat_completion(
     print(payload)
 
     headers = {}
-    headers["api-key"] = key
+    headers["Authorization"] = f"Bearer {key}"
     headers["Content-Type"] = "application/json"
 
     r = None

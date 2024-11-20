@@ -194,15 +194,15 @@ async def generate_completion(
         model = f"{model}:latest"
 
     # Assuming `app.state.MODELS` is available and contains models and URLs
-    if model in app.state.MODELS:
-        url_idx = random.choice(app.state.MODELS[model]["urls"])
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Model {form_data.model} not found",
-        )
+    # if model in app.state.MODELS:
+    #     url_idx = random.choice(app.state.MODELS[model]["urls"])
+    # else:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail=f"Model {form_data.model} not found",
+    #     )
 
-    url = OLLAMA_BASE_URLS[url_idx]
+    url = OLLAMA_BASE_URLS
     payload = form_data.model_dump_json(exclude_none=True).encode()
 
     return await post_streaming_url(f"{url}/api/generate", payload)

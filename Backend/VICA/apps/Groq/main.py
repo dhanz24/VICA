@@ -13,6 +13,7 @@ import requests
 from dotenv import load_dotenv
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -178,10 +179,10 @@ async def generate_chat_completion(
             del payload["max_tokens"]
 
     # Convert the modified body back to JSON
-    payload = json.dumps(payload)
+    # payload = json.dumps(payload)
 
-    log.debug(payload)
-    print(payload)
+    # log.debug(payload)
+    # print(payload)
 
     headers = {}
     headers["Authorization"] = f"Bearer {key}"
@@ -193,18 +194,20 @@ async def generate_chat_completion(
     response = None
 
     try:
+        # Start an aiohttp session for the request
         session = aiohttp.ClientSession(
             trust_env=True, timeout=aiohttp.ClientTimeout(total=30)
         )
         r = await session.request(
             method = "POST",
             url = url,
-            data = payload,
+            json = payload,
             headers = headers,
         )
 
 # Check if response is SSE
         if "text/event-stream" in r.headers.get("Content-Type", ""):
+            print("STREAMING RESPONSE")
             streaming = True
             return StreamingResponse(
                 r.content,
@@ -216,6 +219,7 @@ async def generate_chat_completion(
             )
         else:
             try:
+                print ("NOT STREAMING RESPONSE")
                 response = await r.json()
             except Exception as e:
                 log.error(e)

@@ -1,13 +1,13 @@
 import asyncio
 
 import socketio
-from open_webui.apps.webui.models.users import Users
-from open_webui.env import (
-    ENABLE_WEBSOCKET_SUPPORT,
-    WEBSOCKET_MANAGER,
-    WEBSOCKET_REDIS_URL,
-)
-from open_webui.utils.utils import decode_token
+# from open_webui.apps.webui.models.users import Users
+# from open_webui.env import (
+#     ENABLE_WEBSOCKET_SUPPORT,
+#     WEBSOCKET_MANAGER,
+#     WEBSOCKET_REDIS_URL,
+# )
+# from open_webui.utils.utils import decode_token
 
 
 if WEBSOCKET_MANAGER == "redis":

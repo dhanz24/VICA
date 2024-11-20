@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 ####################################
 # OLLAMA_BASE_URL
 ####################################
@@ -17,3 +18,13 @@ OLLAMA_API_BASE_URL = os.environ.get(
 #CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", "*").split(";")
 
 CORS_ALLOW_ORIGIN = ["http://localhost:5173", "http://localhost:8080"]
+
+
+load_dotenv(".env")
+
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME")
+EMBED_MODEL_NAME = os.getenv("EMBED_MODEL_NAME")
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")

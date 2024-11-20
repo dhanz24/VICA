@@ -1,4 +1,5 @@
 __pycache__
+env/
 .env
 _old
 uploads
@@ -6,5 +7,6 @@ uploads
 *.db
 _test
 Pipfile
-!/data
-/data/*
+
+!data/.gitkeep
+data/*

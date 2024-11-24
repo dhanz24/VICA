@@ -1,4 +1,5 @@
-from Backend.VICA.config import QDRANT_URL, QDRANT_API_KEY
+import os
+import sys
 from typing import List
 import uuid
 from qdrant_client import QdrantClient
@@ -16,7 +17,13 @@ from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.schema import Document
 from llama_index.core.base.response.schema import Response
 from fastapi import UploadFile
-from Backend.VICA.apps.VICA.services.pdf import PDFService
+
+from Backend.VICA.apps.RAG.pdf import PDFService
+from Backend.VICA.config import QDRANT_URL, QDRANT_API_KEY
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+from VICA.apps.VICA.models.user import Users
+from VICA.apps.VICA.models.chat import Chats
 
 DB_DUMMY_CHAT_COLLECTIONS = {
     "uid_1": {
@@ -97,14 +104,18 @@ class RAGService:
         return QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 
     def _get_chat_collection_id(self, user_id: str, chat_id: str) -> str:
-        if user_id not in DB_DUMMY_CHAT_COLLECTIONS:
-            raise ValueError(f"User ID '{user_id}' not found in the database.")
+        user = Users.get_user_by_id(user_id)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=(f"User ID '{user_id}' not found in the database."),
+            )
 
-        user_chats = DB_DUMMY_CHAT_COLLECTIONS[user_id]
-        if chat_id not in user_chats:
-            raise ValueError(f"Chat ID '{chat_id}' not found for User ID '{user_id}'.")
+        user_chats = Chats.get_chat_by_id_and_user_id(chat_id, user_id)
+        if user_chats is None:
+            raise ValueError(f"No chat '{chat_id}' found for User ID '{user_id}'.")
 
-        return DB_DUMMY_CHAT_COLLECTIONS.get(user_id, {}).get(chat_id)
+        return f"{user_id}_{chat_id}"
 
     async def _load_and_split_documents(self, file: UploadFile) -> List[Document]:
         descriptions = await self.pdf_service.describe_pdf(file)

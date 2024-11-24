@@ -27,7 +27,7 @@ AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
 AZURE_OPENAI_MODEL_NAME = os.getenv("MODEL_NAME")
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from VICA.apps.VICA.utils.auth import get_current_user, get_verified_user, get_admin_user
+from VICA.apps.VICA.utils.auth import get_verified_user, get_admin_user
 
 CORS_ALLOW_ORIGIN = os.getenv("CORS_ALLOW_ORIGIN", "*")
 

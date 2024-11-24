@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ollama-api")
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from VICA.apps.VICA.utils.auth import get_current_user, get_verified_user, get_admin_user
+from VICA.apps.VICA.utils.auth import get_verified_user, get_admin_user
 
 
 # Base models

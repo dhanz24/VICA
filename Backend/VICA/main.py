@@ -17,6 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 from VICA.apps.ollama.main import app as ollama_app 
 from VICA.apps.AzureOpenAi.main import app as azure_openai_app
 from VICA.apps.Groq.main import app as groq_app
+from VICA.apps.RAG.main import app as rag_app
 
 from VICA.apps.VICA.config.database import Session
 from VICA.apps.VICA.main import app as vica_app
@@ -31,6 +32,7 @@ app = FastAPI(
 app.mount("/ollama", ollama_app)
 app.mount("/azure-openai", azure_openai_app)
 app.mount("/groq", groq_app)
+app.mount("/rag", rag_app)
 
 app.mount("/vica", vica_app)
 

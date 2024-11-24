@@ -9,10 +9,14 @@ from PIL import Image
 class PDFService:
     def __init__(self, groq: Groq) -> None:
         self._client = groq
+        self._client.base_url = "https://api.groq.com/"
+        
 
     async def describe_pdf(self, file: UploadFile) -> str:
         if file.content_type != "application/pdf":
             raise ValueError("File must be a PDF.")
+
+        print(self._client.base_url)
 
         pdf_data = await file.read()
         pil_images = convert_from_bytes(pdf_data)
@@ -56,7 +60,7 @@ class PDFService:
                 ],
             }
         ]
-
+        
         completion = self._client.chat.completions.create(
             model="llama-3.2-90b-vision-preview",
             messages=messages,

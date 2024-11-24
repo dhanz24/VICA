@@ -25,7 +25,7 @@ GROQ_BASE_URL = os.getenv("GROQ_BASE_URL")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from VICA.apps.VICA.utils.auth import get_current_user, get_verified_user, get_admin_user
+from VICA.apps.VICA.utils.auth import get_verified_user, get_admin_user
 
 CORS_ALLOW_ORIGIN = os.getenv("CORS_ALLOW_ORIGIN", "*")
 

@@ -39,6 +39,4 @@ async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse
 async def get_status():
     return {"status": True}
 
-
-# Usage: uvicorn Backend.VICA.apps.VICA.main:app
 # To use from pdf2image import convert_from_bytes, install poppler-utils (https://pdf2image.readthedocs.io/en/latest/installation.html)

@@ -1,4 +1,5 @@
 import os
+import sys
 from dotenv import load_dotenv
 ####################################
 # OLLAMA_BASE_URL
@@ -27,4 +28,6 @@ EMBED_MODEL_NAME = os.getenv("EMBED_MODEL_NAME")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY_2")
+JINA_API_KEY = os.getenv("JINA_API_KEY")

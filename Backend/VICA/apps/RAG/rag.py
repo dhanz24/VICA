@@ -25,18 +25,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 from VICA.apps.VICA.models.user import Users
 from VICA.apps.VICA.models.chat import Chats
 
-DB_DUMMY_CHAT_COLLECTIONS = {
-    "uid_1": {
-        "cid_1": "ecc129ed-735c-434f-9f4b-539165de0455",  # str(uuid.uuid4())
-        "cid_2": "07019e60-9b7f-4d5f-a043-7acf7d902b69",
-        "cid_3": "1cc0acc4-3a3a-4747-a6ba-08dfa5f6e6d1",
-    },
-    "uid_2": {
-        "cid_4": "2e74e48d-6569-4ecd-9c91-a783073f5c00",
-        "cid_5": "9b89f306-0ed3-4415-b2f7-763177455fe3",
-    },
-}
-
 
 class RAGService:
     def __init__(

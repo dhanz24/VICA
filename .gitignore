@@ -10,3 +10,6 @@ Pipfile
 
 !data/.gitkeep
 data/*
+
+node_modules
+.chainlit

@@ -14,8 +14,21 @@
   uvicorn Backend.VICA.main:app --port 8000 --host 0.0.0.0 --reload
   ```
 
-Aplikasi akan berjalan pada `http://0.0.0.0:8000`.
+Aplikasi Backend akan berjalan pada `http://0.0.0.0:8000`.
 
-## Kontribusi
+4. Masuk ke direktori Frontend:
+'''bash
+cd frontend/VICA
+'''
 
-Kami menyambut kontribusi dari siapa saja. Silakan buat pull request atau laporkan masalah yang Anda temui.
+5. Install dependencies frontend yang dibutuhkan
+'''bash
+npm install
+'''
+
+6. Jalankan Frontend dengan perintah
+'''bash
+npm run dev
+'''
+
+Aplikasi Frontend akan berjalan pada http://localhost:5173/

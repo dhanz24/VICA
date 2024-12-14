@@ -22,6 +22,8 @@ from VICA.apps.RAG.main import app as rag_app
 from VICA.apps.VICA.config.database import Session
 from VICA.apps.VICA.main import app as vica_app
 
+from chainlit.utils import mount_chainlit
+
 app = FastAPI(
     title="VICA Backend",
     docs_url="/docs",
@@ -36,6 +38,12 @@ app.mount("/rag", rag_app)
 
 app.mount("/vica", vica_app)
 
+@app.get("/chat")
+def start_chat():
+    return {"message": "Chat application is running at /chainlit"}
+
+# Mount Chainlit app
+mount_chainlit(app=app, target="Frontend/chainlit/main.py", path="/chainlit")
 
 @app.get("/health")
 async def health_check():

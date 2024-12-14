@@ -5,7 +5,7 @@ import base64
 chat_id = "7ea73edb-9f9f-458c-907e-b966719bcfb8"
 CHAT_COMPLETIONS_ENDPOINT = "http://localhost:8000/groq/chat/completions"
 RAG_ENDPOINT = "http://localhost:8000/rag/knowledge/query/{chat_id}"
-AUTH = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjllZGE0ZmE2LTVlOGMtNGVmYy1iNjIwLWMxMmRhOTQ2NjE0MyIsIm5hbWUiOiJhZG1pbiIsImV4cCI6MTczMjc1ODA0NH0.lDmS9sbEbGO_1pRItSdVx37FTHNJbEMvlnT-x67iH5Y"
+AUTH = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjllZGE0ZmE2LTVlOGMtNGVmYy1iNjIwLWMxMmRhOTQ2NjE0MyIsIm5hbWUiOiJhZG1pbiIsImV4cCI6MTczNDQzMDU5N30.TygZH1i5kWY6YtACjgFXrxQ26j3AWi1tM--DofPiJ7w"
 
 @cl.set_chat_profiles
 async def chat_profile():
@@ -14,12 +14,12 @@ async def chat_profile():
         cl.ChatProfile(
             name="With RAG",
             markdown_description="This chat will use **RAG (Retrieval-Augmented Generation)** to enhance responses with additional knowledge.",
-            icon="https://picsum.photos/200",
+
         ),
         cl.ChatProfile(
             name="Without RAG",
             markdown_description="This chat will **not use RAG**, and responses will rely solely on the LLM.",
-            icon="https://picsum.photos/250",
+
         ),
     ]
 

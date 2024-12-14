@@ -11,6 +11,7 @@ PyJWT == 2.3.0
 passlib==1.7.4
 passlib[bcrypt]
 bcrypt==3.2.0
+firebase-admin==6.6.0
 
 # AI libraries  
 openai==1.54.4

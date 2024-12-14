@@ -1,0 +1,27 @@
+/* src/input.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+@keyframes pulse-eclipse {
+  0%, 100% {
+    transform: scale(1) skewX(12deg) skewY(6deg);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.2) skewX(15deg) skewY(8deg);
+    opacity: 1;
+  }
+}
+
+.animate-eclipse {
+  animation: pulse-eclipse 6s infinite ease-in-out;
+}
+
+.bg-gradient-radial {
+  background: radial-gradient(circle, red 30%, transparent 100%);
+}

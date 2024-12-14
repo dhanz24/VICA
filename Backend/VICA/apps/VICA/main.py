@@ -15,13 +15,20 @@ from VICA.apps.VICA.routes.auth import router as auth_router
 from VICA.apps.VICA.routes.user import router as user_router
 from VICA.apps.VICA.routes.chat import router as chat_router
 
-
+CORS_ALLOW_ORIGIN = os.getenv("CORS_ALLOW_ORIGIN", "*")
 
 app = FastAPI(
     title="VICA Backend",
     docs_url="/docs",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOW_ORIGIN,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include router
 app.include_router(auth_router, prefix="/auths", tags=["Auths"])

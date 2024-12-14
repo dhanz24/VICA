@@ -63,15 +63,8 @@ class MultiModalRAGService:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def create_knowledge_base(self, user_id: str, chat_id: str, file: UploadFile) -> None:
-        """
-        Buat knowledge base baru, tambahkan node baru, atau tolak file yang sudah ada berdasarkan nama file.
-        """
         self.logger.info(f"Starting knowledge base creation or update for chat_id '{chat_id}'.")
         collection_id = self._get_chat_collection_id(user_id, chat_id)
-
-        # Validasi format file
-        if not file.filename.endswith(('.pdf')):
-            raise ValueError("Unsupported file type. Please upload a PDF file.")
         
         # Periksa apakah collection sudah ada
         if self.qdrant_client.collection_exists(collection_id):
@@ -88,7 +81,7 @@ class MultiModalRAGService:
             self.logger.info(f"Collection '{collection_id}' created.")
 
         # Proses dokumen
-        documents = await self._load_and_split_documents(file)
+        documents = await self._load_and_process_files(file)
         vector_store = QdrantVectorStore(
             client=self.qdrant_client, collection_name=collection_id
         )
@@ -152,72 +145,171 @@ class MultiModalRAGService:
 
         return f"{user_id}_{chat_id}"
 
-    async def _load_and_split_documents(self, file: UploadFile) -> List[Document]:
-        temp_dir = None
-        try:
-            # Buat direktori sementara untuk menyimpan file
-            temp_dir = tempfile.mkdtemp()
-            file_path = os.path.join(temp_dir, f"temp_{file.filename}")
-            image_dir = os.path.join(temp_dir, "images")
+    async def _load_and_process_files(self, file: UploadFile) -> List[Document]:
 
-            # Simpan file ke direktori sementara
+        file_extension = os.path.splitext(file.filename.lower())[1]
+
+        if file_extension in ['.jpg', '.jpeg', '.png', '.svg']:
+            return await self._process_image(file)
+        elif file_extension in ['.pdf']:
+            return await self._process_pdf(file)
+        elif file_extension in ['.docx']:
+            return await self._process_docx(file)
+        elif file_extension in ['.txt']:
+            return await self._process_txt(file)
+        elif file_extension in ['.csv']:
+            return await self._process_csv(file)
+        else:
+            raise ValueError(f"Unsupported file type: {file_extension}")
+
+    async def _process_image(self, file: UploadFile) -> List[Document]:
+
+        try:
+            # Simpan gambar sementara
+            temp_dir = tempfile.mkdtemp()
+            file_path = os.path.join(temp_dir, file.filename)
+
             with open(file_path, "wb") as tmp_file:
                 tmp_file.write(await file.read())
-            
-            self.logger.info(f"File saved temporarily at {file_path}")
 
-            # Gunakan partition_pdf untuk memproses file
+            self.logger.info(f"Image file saved temporarily at {file_path}")
+
+            with open(file_path, "rb") as img_file:
+                base64_image = base64.b64encode(img_file.read()).decode("utf-8")
+
+            # Dapatkan deskripsi gambar
+            description = await self.pdf_service._describe_image(base64_image, page_number=1)
+            self.logger.info(f"Description generated for image '{file.filename}'")
+
+            return [Document(text=f"Description of {file.filename}: {description}")]
+        finally:
+            # Hapus file sementara
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+
+    async def _process_pdf(self, file: UploadFile) -> List[Document]:
+
+        try:
+            temp_dir = tempfile.mkdtemp()
+            file_path = os.path.join(temp_dir, file.filename)
+            image_dir = os.path.join(temp_dir, "images")
+
+            # Simpan file sementara
+            with open(file_path, "wb") as tmp_file:
+                tmp_file.write(await file.read())
+
+            self.logger.info(f"PDF file saved temporarily at {file_path}")
+
+            # Proses PDF
             raw_pdf_elements = partition_pdf(
                 filename=file_path,
                 extract_images_in_pdf=True,
                 infer_table_structure=True,
                 chunking_strategy="by_title",
-                max_characters=4000,
-                new_after_n_chars=3800,
-                combine_text_under_n_chars=2000,
-                extract_image_block_output_dir = f"{image_dir}",
+                extract_image_block_output_dir=image_dir,
             )
-            
-            self.logger.info("PDF successfully partitioned.")
 
-            # Log the number of images found
-            image_count = len([img for img in os.listdir(image_dir) if img.endswith(('.jpg', '.jpeg', '.png'))])
-            self.logger.info(f"Number of images found: {image_count}")
+            self.logger.info("PDF partitioned successfully.")
 
-            # Proses deskripsi gambar
+            # Proses gambar yang diekstrak
             image_descriptions = []
-
             if os.path.exists(image_dir):
-                for image_number, image_file in enumerate(sorted(os.listdir(image_dir)), start=1):
-                    if image_file.endswith(('.jpg', '.jpeg', '.png')):
+                for image_file in sorted(os.listdir(image_dir)):
+                    if image_file.lower().endswith(('.jpg', '.jpeg', '.png')):
                         image_path = os.path.join(image_dir, image_file)
-                        
-                        # Convert gambar ke base64 untuk proses lebih lanjut
+
                         with open(image_path, "rb") as img_file:
                             base64_image = base64.b64encode(img_file.read()).decode("utf-8")
-                        
-                        # Buat deskripsi gambar
-                        description = await self.pdf_service._describe_image(base64_image, image_number)
+
+                        description = await self.pdf_service._describe_image(base64_image)
                         image_descriptions.append(f"Image {image_file}: {description}")
-            
+
             # Gabungkan teks dan deskripsi gambar
             splitter = SentenceSplitter(chunk_size=1000, chunk_overlap=50)
             text_descriptions = " ".join([str(element) for element in raw_pdf_elements])
             combined_content = text_descriptions + "\n" + "\n".join(image_descriptions)
 
             return [Document(text=text) for text in splitter.split_text(combined_content)]
-
-        except Exception as e:
-            self.logger.error(f"Error while loading and splitting documents: {e}")
-            raise
-
         finally:
-            # Hapus file sementara setelah selesai
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            if os.path.exists(image_dir):
-                shutil.rmtree(image_dir)
-            self.logger.info(f"Temporary file {file_path} and images removed.")
+            # Hapus file sementara
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+
+    async def _process_docx(self, file: UploadFile) -> List[Document]:
+        """Proses file DOCX."""
+        try:
+            # Simpan file sementara
+            temp_dir = tempfile.mkdtemp()
+            file_path = os.path.join(temp_dir, file.filename)
+
+            with open(file_path, "wb") as tmp_file:
+                tmp_file.write(await file.read())
+
+            self.logger.info(f"DOCX file saved temporarily at {file_path}")
+
+            # Baca konten DOCX
+            doc = docx.Document(file_path)
+            text_content = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+
+            # Split menjadi dokumen kecil untuk indexing
+            splitter = SentenceSplitter(chunk_size=1000, chunk_overlap=50)
+            return [Document(text=text) for text in splitter.split_text(text_content)]
+        finally:
+            # Hapus file sementara
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+
+    async def _process_txt(self, file: UploadFile) -> List[Document]:
+        """Proses file TXT."""
+        try:
+            # Simpan file sementara
+            temp_dir = tempfile.mkdtemp()
+            file_path = os.path.join(temp_dir, file.filename)
+
+            with open(file_path, "wb") as tmp_file:
+                tmp_file.write(await file.read())
+
+            self.logger.info(f"TXT file saved temporarily at {file_path}")
+
+            # Baca konten TXT
+            with open(file_path, "r", encoding="utf-8") as txt_file:
+                text_content = txt_file.read()
+
+            # Split menjadi dokumen kecil untuk indexing
+            splitter = SentenceSplitter(chunk_size=1000, chunk_overlap=50)
+            return [Document(text=text) for text in splitter.split_text(text_content)]
+        finally:
+            # Hapus file sementara
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+
+    async def _process_csv(self, file: UploadFile) -> List[Document]:
+        """Proses file CSV."""
+        try:
+            # Simpan file sementara
+            temp_dir = tempfile.mkdtemp()
+            file_path = os.path.join(temp_dir, file.filename)
+
+            with open(file_path, "wb") as tmp_file:
+                tmp_file.write(await file.read())
+
+            self.logger.info(f"CSV file saved temporarily at {file_path}")
+
+            # Baca konten CSV
+            with open(file_path, "r", encoding="utf-8") as csv_file:
+                reader = csv.reader(csv_file)
+                rows = ["\t".join(row) for row in reader]
+
+            text_content = "\n".join(rows)
+
+            # Split menjadi dokumen kecil untuk indexing
+            splitter = SentenceSplitter(chunk_size=1000, chunk_overlap=50)
+            return [Document(text=text) for text in splitter.split_text(text_content)]
+        finally:
+            # Hapus file sementara
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+
 
     def _get_vector_index(self, collection_id: uuid) -> VectorStoreIndex:
         vector_store = QdrantVectorStore(

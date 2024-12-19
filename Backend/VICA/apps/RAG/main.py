@@ -138,7 +138,7 @@ class RAGRouter:
 
 
 ollama_llm = Ollama(model=LLM_MODEL_NAME, request_timeout=120)
-groq_llm = llama_Groq(model="llama-3.2-90b-vision-preview", api_key=GROQ_API_KEY)
+groq_llm = llama_Groq(model="llama3-8b-8192", api_key=GROQ_API_KEY)
 
 ollama_embed_model = OllamaEmbedding(model_name=EMBED_MODEL_NAME)
 jina_embed_model = JinaEmbedding(

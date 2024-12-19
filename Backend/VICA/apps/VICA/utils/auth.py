@@ -60,11 +60,17 @@ def validate_email_format(email: str) -> bool:
 def get_current_user(
     request: Request,
     auth_token: HTTPAuthorizationCredentials = Depends(bearer_security),
+    manual_token: Optional[str] = None,  # Parameter opsional untuk token manual
 ):
     token = None
+    if manual_token:
+        token = manual_token
 
     if auth_token is not None:
-        token = auth_token.credentials
+        try:
+            token = auth_token.credentials
+        except Exception:
+            pass
 
     if token is None and "token" in request.cookies:
         token = request.cookies.get("token")

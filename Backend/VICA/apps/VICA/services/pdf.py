@@ -1,6 +1,7 @@
 from groq import Groq
 from pdf2image import convert_from_bytes
 import base64
+import PyPDF2
 from fastapi import UploadFile
 from io import BytesIO
 from PIL import Image
@@ -24,6 +25,11 @@ class PDFService:
         ]
 
         return "\n".join(descriptions)
+
+    async def extract_text_from_pdf(self, file: UploadFile) -> str:
+        pdf_content = await file.read()
+        pdf_reader = PyPDF2.PdfReader(BytesIO(pdf_content))
+        return "\n".join(page.extract_text() for page in pdf_reader.pages)
 
     def _convert_image_to_base64(self, pil_image: Image.Image) -> str:
         buffered = BytesIO()

@@ -47,7 +47,7 @@ class RAGService:
         self.qdrant_client = self._get_qdrant_client()
 
     async def create_knowledge_base(
-        self, user_id: str, chat_id: str, file: UploadFile
+        self, user_id: str, chat_id: str, file: UploadFile, include_visuals: bool
     ) -> None:
         collection_id = self._get_chat_collection_id(user_id, chat_id)
         if self.qdrant_client.collection_exists(collection_id):
@@ -55,7 +55,7 @@ class RAGService:
                 f"Knowledge base already exists for chat_id '{chat_id}'. Create a new chat."
             )
         else:
-            documents = await self._load_and_split_documents(file)
+            documents = await self._load_and_split_documents(file, include_visuals)
 
             self.qdrant_client.create_collection(
                 collection_name=collection_id,
@@ -106,8 +106,14 @@ class RAGService:
 
         return DB_DUMMY_CHAT_COLLECTIONS.get(user_id, {}).get(chat_id)
 
-    async def _load_and_split_documents(self, file: UploadFile) -> List[Document]:
-        descriptions = await self.pdf_service.describe_pdf(file)
+    async def _load_and_split_documents(
+        self, file: UploadFile, include_visuals: bool = True
+    ) -> List[Document]:
+        descriptions = (
+            await self.pdf_service.describe_pdf(file)
+            if include_visuals
+            else await self.pdf_service.extract_text_from_pdf(file)
+        )
 
         splitter = SentenceSplitter(chunk_size=1000, chunk_overlap=50)
 

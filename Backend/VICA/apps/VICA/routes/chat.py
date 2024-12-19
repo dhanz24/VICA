@@ -27,8 +27,11 @@ class ChatRouter:
             user_id: str = Form(...),
             chat_id: str = Form(...),
             file: UploadFile = File(...),
+            include_visuals: bool = Form(True),
         ) -> JSONResponse:
-            await self.rag_service.create_knowledge_base(user_id, chat_id, file)
+            await self.rag_service.create_knowledge_base(
+                user_id, chat_id, file, include_visuals
+            )
 
             return JSONResponse(
                 status_code=201,

@@ -139,9 +139,9 @@ class MultiModalRAGService:
                 detail=f"User ID '{user_id}' not found in the database.",
             )
 
-        user_chats = Chats.get_chat_by_id_and_user_id(chat_id, user_id)
-        if user_chats is None:
-            raise ValueError(f"No chat '{chat_id}' found for User ID '{user_id}'.")
+        # user_chats = Chats.get_chat_by_id_and_user_id(chat_id, user_id)
+        # if user_chats is None:
+        #     raise ValueError(f"No chat '{chat_id}' found for User ID '{user_id}'.")
 
         return f"{user_id}_{chat_id}"
 
@@ -214,14 +214,14 @@ class MultiModalRAGService:
             # Proses gambar yang diekstrak
             image_descriptions = []
             if os.path.exists(image_dir):
-                for image_file in sorted(os.listdir(image_dir)):
+                for image_number, image_file in enumerate(sorted(os.listdir(image_dir)), start=1):
                     if image_file.lower().endswith(('.jpg', '.jpeg', '.png')):
                         image_path = os.path.join(image_dir, image_file)
 
                         with open(image_path, "rb") as img_file:
                             base64_image = base64.b64encode(img_file.read()).decode("utf-8")
 
-                        description = await self.pdf_service._describe_image(base64_image)
+                        description = await self.pdf_service._describe_image(base64_image, image_number)
                         image_descriptions.append(f"Image {image_file}: {description}")
 
             # Gabungkan teks dan deskripsi gambar

@@ -42,22 +42,22 @@ app.mount("/rag", rag_app)
 
 app.mount("/vica", vica_app)
 
-@app.get("/chat")
-async def start_chat(request : Request):
-    if not config.code.header_auth_callback:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No header_auth_callback defined",
-        )
+# @app.get("/chat")
+# async def start_chat(request : Request):
+#     if not config.code.header_auth_callback:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="No header_auth_callback defined",
+#         )
 
-    user = await config.code.header_auth_callback(request.headers)
+#     user = await config.code.header_auth_callback(request.headers)
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized",
-        )
-    return RedirectResponse(url=f"http://localhost:8000/chainlit/web/login/callback?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjllZGE0ZmE2LTVlOGMtNGVmYy1iNjIwLWMxMmRhOTQ2NjE0MyIsIm5hbWUiOiJhZG1pbiIsImV4cCI6MTczNDc4MzAwOX0.Eld_KY7qu7FcPje90PoHnJdzmn-j3h65XbcLRB43bdc", status_code=307)
+#     if not user:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Unauthorized",
+#         )
+#     return RedirectResponse(url=f"http://localhost:8000/chainlit/web/login/callback?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjllZGE0ZmE2LTVlOGMtNGVmYy1iNjIwLWMxMmRhOTQ2NjE0MyIsIm5hbWUiOiJhZG1pbiIsImV4cCI6MTczNDc4MzAwOX0.Eld_KY7qu7FcPje90PoHnJdzmn-j3h65XbcLRB43bdc", status_code=307)
 
 # Mount Chainlit app
 mount_chainlit(app=app, target="Frontend/chainlit/main.py", path="/chainlit")

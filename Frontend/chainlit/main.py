@@ -7,8 +7,6 @@ from urllib.parse import urlparse, parse_qs
 import chainlit as cl
 from chainlit.input_widget import Select, Switch, Slider, TextInput
 
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-bearer_security = HTTPBearer()
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from Backend.VICA.apps.VICA.utils.auth import get_current_user, get_verified_user, decode_token
@@ -16,6 +14,7 @@ from Backend.VICA.apps.VICA.utils.auth import get_current_user, get_verified_use
 chat_id = "7ea73edb-9f9f-458c-907e-b966719bcfb8"
 CHAT_COMPLETIONS_ENDPOINT = "http://localhost:8000/groq/chat/completions"
 RAG_ENDPOINT = "http://localhost:8000/rag/knowledge/query/{chat_id}"
+UPLOAD_KNOWLEDGE_BASE_ENDPOINT = "http://localhost:8000/rag/knowledge/create"
 
 LITERAL_API_KEY = os.getenv("LITERAL_API_KEY")
 
@@ -100,7 +99,7 @@ async def on_chat_start():
     # Kirim pengaturan chat (Chat Settings)
     settings = await cl.ChatSettings(
         [
-            Switch(id="RAG", label="Enable RAG", initial=True),
+            Switch(id="RAG", label="Enable RAG", initial=False),
             Slider(
                 id="Temperature",
                 label="LLM - Temperature",
@@ -115,7 +114,7 @@ async def on_chat_start():
                 initial=500,
                 min=100,
                 max=2000,
-                step=100,
+                step=50,
             ),
             TextInput(
                 id="System_Prompt",
@@ -124,7 +123,7 @@ async def on_chat_start():
                 initial="You are a helpful and knowledgeable assistant. Answer questions clearly and concisely.", 
                 multiline=True,  # Allow for multiline input
                 rows=5  # Set the height of the input box
-            ),
+            ),          
         ]
     ).send()
 
@@ -158,12 +157,12 @@ async def fetch_rag_response(question: str, chat_id: str) -> str:
             return f"Unexpected error: {e}"
 
 
-async def fetch_chat_completion(messages, model: str = "llama-3.2-11b-vision-preview", max_tokens: int = 500, temperature: float = 0.7):
+async def fetch_chat_completion(messages, model: str = "llama-3.2-11b-vision-preview", max_tokens: int = 400, temperature: float = 0.7):
     """Function to send requests to the backend."""
     payload = {
         "model": model,
         "messages": messages,
-        "max_tokens": max_tokens,
+        "max_tokens": int(max_tokens),
         "temperature": temperature
     }
     # Ambil token dari session
@@ -184,17 +183,93 @@ async def fetch_chat_completion(messages, model: str = "llama-3.2-11b-vision-pre
         except Exception as e:
             return f"Unexpected error: {e}"
 
+async def upload_knowledge_base(user_id: str, chat_id: str, file):
+    """Function to upload knowledge base file."""
+    form_data = {
+        "user_id": user_id,
+        "chat_id": chat_id
+    }
+
+    auth_token = cl.user_session.get("auth_token")
+    if not auth_token:
+        return "Authentication token is missing. Please restart the session."
+
+    headers = {"Authorization": f"Bearer {auth_token}"}
+
+    # Buka file sebelum membuat klien HTTP
+    file_stream = open(file.path, 'rb')  # Jangan gunakan "with" di sini
+    try:
+        files = {
+            'file': (file.name, file_stream, file.type)
+        }
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
+            print("Uploading file...")
+            response = await client.post(
+                UPLOAD_KNOWLEDGE_BASE_ENDPOINT, files=files, data=form_data, headers=headers
+            )
+            print("Response:", response.text)
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as e:
+        print(f"HTTP error occurred: {e.response.text}")
+        return f"HTTP error occurred: {e.response.text}"
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        return f"An error occurred: {str(e)}"
+    finally:
+        print("Closing file...")
+        file_stream.close()  # Tutup file di blok finally
+
 
 @cl.on_message
 async def main(message: cl.Message):
     """Process user message based on the chat settings."""
     settings = cl.user_session.get("chat_settings", {})
     user_question = message.content.strip()
+    
+    user_id = cl.user_session.get("user_data").get("id")
+    chat_id = cl.context.session.thread_id
+
+    if user_question.lower() == "upload_knowledge":
+        # Prompt the user to upload a file
+        files = await cl.AskFileMessage(
+            content="Please upload your knowledge base file (accepted formats: .txt, .pdf, .docx, .png, .jpg, .jpeg).",
+            accept={
+                'image/png': ['.png'],
+                'image/jpeg': ['.jpg', '.jpeg'],
+                "text/plain": [".txt"],
+                "application/pdf": [".pdf"],
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"]
+            },
+            max_size_mb=10,  # Set maximum file size as needed
+            max_files=1,     # Allow only one file upload
+            timeout=180,      # Set timeout duration as needed
+        ).send()
+        
+        # Check if files were uploaded
+        if files:
+            uploaded_file = files[0]
+            await cl.Message(content=f"Creating Knowledge Base User ID: {user_id}, Chat ID: {chat_id}....").send()
+            await upload_knowledge_base(user_id, chat_id, uploaded_file)
+            elements = [
+                cl.File(
+                    name= uploaded_file.name,
+                    path= uploaded_file.path,
+                    display="inline",
+                ),
+            ]
+            await cl.Message(content=f"Creating Knowledge Based on {uploaded_file.type} successful", elements = elements).send()
+
+        else:
+            await cl.Message(content="No file was uploaded. Please try again.").send()
+        return
+            
 
     # Dapatkan pengaturan RAG dan system prompt dari chat settings
-    use_rag = settings.get("RAG", True)
+    use_rag = settings.get("RAG", False)
     temperature = settings.get("Temperature", 0.7)
-    max_tokens = settings.get("Max_Tokens", 500)
+    max_tokens = settings.get("Max_Tokens", 400)
     system_prompt = settings.get("System_Prompt", "You are a helpful and knowledgeable assistant.")
 
     # Logic based on RAG setting
@@ -202,7 +277,7 @@ async def main(message: cl.Message):
         # Fetch additional knowledge from RAG
         rag_response = await fetch_rag_response(question=user_question, chat_id=chat_id)
         print("RAG Response:", rag_response)
-        llm_prompt = f"""{system_prompt}
+        llm_prompt = f"""
 
 User Question:
 {user_question}
@@ -214,13 +289,7 @@ Instructions:
 Using the information from the 'Retrieved Knowledge' section above, answer the user's question in a clear and informative way."""
     else:
         # Use only LLM without RAG
-        llm_prompt = f"""{system_prompt}
-
-User Question:
-{user_question}
-
-Instructions:
-Answer the user's question in a clear and informative way. Use general knowledge if applicable."""
+        llm_prompt = f"{user_question}"
 
     # Prepare the messages array for LLM
     messages = [
@@ -246,3 +315,5 @@ async def on_settings_update(settings):
     """Update settings dynamically."""
     cl.user_session.set("chat_settings", settings)
     print("Updated settings:", settings)
+
+

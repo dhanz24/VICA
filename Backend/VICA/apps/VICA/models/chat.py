@@ -1,10 +1,12 @@
 import uuid
 import os
 import sys
+import json
+from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import BigInteger, Column, String, Text, Boolean, DateTime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -29,14 +31,18 @@ class Chat(Base):
     archived = Column(Boolean, default=False)
 
 class ChatModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)    
+
     id: str
     user_id: str
-    title: Optional[str]
-    chat: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    title: str
+    chat: str
+
+    created_at: datetime
+    updated_at: datetime
+
     share_id: Optional[str] = None
-    archived: Optional[bool] = False
+    archived: bool = False
 
 ####################
 # Forms
@@ -81,8 +87,8 @@ class ChatTable:
                         else "New Chat"
                     ),
                     "chat": json.dumps(form_data.chat),
-                    "created_at": int(time.time()),
-                    "updated_at": int(time.time()),
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
                 }
             )
 
@@ -92,19 +98,31 @@ class ChatTable:
             db.refresh(result)
             return ChatModel.model_validate(result) if result else None
 
+    # Fungsi dalam class `Chats` untuk meng-update chat
     def update_chat_by_id(self, id: str, chat: dict) -> Optional[ChatModel]:
         try:
             with get_db() as db:
                 chat_obj = db.get(Chat, id)
+                if not chat_obj:
+                    print(f"Chat with id {id} not found.")
+                    return None
+                
+                # Update field chat
                 chat_obj.chat = json.dumps(chat)
-                chat_obj.title = chat["title"] if "title" in chat else "New Chat"
-                chat_obj.updated_at = int(time.time())
+                chat_obj.title = chat.get("title", "New Chat")
+                chat_obj.updated_at = datetime.utcnow()
+                
                 db.commit()
                 db.refresh(chat_obj)
-
-                return ChatModel.model_validate(chat_obj)
-        except Exception:
+                
+                # Pastikan model_validate tidak mengembalikan None
+                validated_chat = ChatModel.model_validate(chat_obj)
+                
+                return validated_chat
+        except Exception as e:
+            print("Error during chat update:", e)
             return None
+
 
     def get_chats(self, skip: int = 0, limit: int = 50) -> list[ChatModel]:
         with get_db() as db:

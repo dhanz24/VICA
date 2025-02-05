@@ -10,3 +10,8 @@ Pipfile
 
 !data/.gitkeep
 data/*
+
+node_modules
+.chainlit
+.files
+Backend/VICA/apps/VICA/vica-b11d5-firebase-adminsdk-w4qv7-b2dbe4a9f0.json

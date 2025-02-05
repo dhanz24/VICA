@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ollama-api")
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from VICA.apps.VICA.utils.auth import get_current_user, get_verified_user, get_admin_user
+from VICA.apps.VICA.utils.auth import get_verified_user, get_admin_user
 
 
 # Base models
@@ -194,15 +194,15 @@ async def generate_completion(
         model = f"{model}:latest"
 
     # Assuming `app.state.MODELS` is available and contains models and URLs
-    if model in app.state.MODELS:
-        url_idx = random.choice(app.state.MODELS[model]["urls"])
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Model {form_data.model} not found",
-        )
+    # if model in app.state.MODELS:
+    #     url_idx = random.choice(app.state.MODELS[model]["urls"])
+    # else:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail=f"Model {form_data.model} not found",
+    #     )
 
-    url = OLLAMA_BASE_URLS[url_idx]
+    url = OLLAMA_BASE_URLS
     payload = form_data.model_dump_json(exclude_none=True).encode()
 
     return await post_streaming_url(f"{url}/api/generate", payload)
